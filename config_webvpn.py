@@ -10,6 +10,7 @@ import requests
 from plyer import notification
 import tkinter as tk
 import winsound
+import random
 
 
 API_URL = "https://api.cc98.org/board/459/topic?from=0&size=20"
@@ -26,6 +27,7 @@ BASE_HEADERS = {
 
 SPECIAL_KEYWORDS = [
     " ", " ", " ",
+
 ]
 
 
@@ -364,14 +366,31 @@ def main() -> None:
 
     monitor_conf = config.get("monitor") or {}
     api_url = monitor_conf.get("board_api", API_URL)
-    interval = int(monitor_conf.get("check_interval", CHECK_INTERVAL))
+    #interval = int(monitor_conf.get("check_interval", CHECK_INTERVAL))
+
+    interval_range = monitor_conf.get("check_interval_range")
+    fixed_interval = int(monitor_conf.get("check_interval", CHECK_INTERVAL))
+
+    if (
+        isinstance(interval_range, list)
+        and len(interval_range) == 2
+        and all(isinstance(x, (int, float)) for x in interval_range)
+    ):
+        min_interval = int(interval_range[0])
+        max_interval = int(interval_range[1])
+        if min_interval > max_interval:
+            min_interval, max_interval = max_interval, min_interval
+    else:
+        min_interval = fixed_interval
+        max_interval = fixed_interval
 
     session = build_session(config)
     auth = AuthManager(session, cc98_conf["username"], cc98_conf["password"])
-
+    sleep_seconds = random.randint(min_interval, max_interval)
+    
     print("CC98 板块新帖监控已启动")
     print(f"监控接口：{api_url}")
-    print(f"检查间隔：{interval} 秒")
+    print(f"检查间隔：{sleep_seconds} 秒")
     print(f"特殊关键词：{'、'.join(SPECIAL_KEYWORDS)}")
     """
     state = load_state()
@@ -445,7 +464,10 @@ def main() -> None:
         except Exception as e:
             print("检查失败：", e)
 
-        time.sleep(interval)
+        #time.sleep(interval)
+        time.sleep(sleep_seconds)
+        sleep_seconds = random.randint(min_interval, max_interval)
+        print(f"检查间隔：{sleep_seconds} 秒")
 
 
 if __name__ == "__main__":
