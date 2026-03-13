@@ -25,12 +25,7 @@ BASE_HEADERS = {
 }
 
 SPECIAL_KEYWORDS = [
-    "小学", "初中", "高中",
-    "英语", "数学", "物理", "生物", "历史", "地理", "化学",
-    "年级", "科学", "社会",
-    "初一", "初二", "初三",
-    "高一", "高二", "高三",
-    "家教", "有偿", "问卷", "填写", 
+    " ", " ", " ",
 ]
 
 
@@ -152,19 +147,25 @@ def load_config() -> Dict[str, Any]:
     with open("config.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
-
+"""
 def load_state() -> Dict[str, Any]:
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {"latest_id": None}
+"""
+def load_state() -> Dict[str, Any]:
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"latest_ids": []}
 
 
 def save_state(state: Dict[str, Any]) -> None:
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
-
+"""
 def get_latest_topic(auth: AuthManager, api_url: str) -> Dict[str, Any]:
     headers = auth.get_headers()
     response = auth.session.get(api_url, headers=headers, timeout=15)
@@ -193,6 +194,44 @@ def get_latest_topic(auth: AuthManager, api_url: str) -> Dict[str, Any]:
     topic_time = first.get("time", "")
     link = f"https://www.cc98.org/topic/{topic_id}"
     return {"id": topic_id, "title": title, "time": topic_time, "link": link}
+"""
+
+def get_latest_topics(auth: AuthManager, api_url: str) -> list[Dict[str, Any]]:
+    headers = auth.get_headers()
+    response = auth.session.get(api_url, headers=headers, timeout=15)
+
+    if response.status_code == 401:
+        auth.handle_401()
+        headers = auth.get_headers()
+        response = auth.session.get(api_url, headers=headers, timeout=15)
+
+    if response.status_code == 401:
+        raise CC98MonitorError("认证失效：自动刷新后仍然 401")
+    if response.status_code == 403:
+        raise CC98MonitorError("没有权限访问：可能当前账号/网络环境不允许访问")
+    if response.status_code != 200:
+        raise CC98MonitorError(
+            f"请求失败，状态码：{response.status_code}，返回内容：{response.text[:300]}"
+        )
+
+    data = response.json()
+    if not isinstance(data, list) or not data:
+        raise CC98MonitorError("接口返回不是帖子列表，或列表为空")
+
+    topics = []
+    for item in data[:2]:
+        topic_id = item["id"]
+        title = item.get("title", "")
+        topic_time = item.get("time", "")
+        link = f"https://www.cc98.org/topic/{topic_id}"
+        topics.append({
+            "id": topic_id,
+            "title": title,
+            "time": topic_time,
+            "link": link
+        })
+
+    return topics
 
 
 def contains_special_keyword(title: str):
@@ -334,7 +373,7 @@ def main() -> None:
     print(f"监控接口：{api_url}")
     print(f"检查间隔：{interval} 秒")
     print(f"特殊关键词：{'、'.join(SPECIAL_KEYWORDS)}")
-
+    """
     state = load_state()
     initialized = state.get("latest_id") is not None
 
@@ -358,7 +397,51 @@ def main() -> None:
                 state["latest_id"] = latest["id"]
                 save_state(state)
             else:
-                print("暂无新帖")
+                print(datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")+"    "+"暂无新帖")
+                #print()
+        except Exception as e:
+            print("检查失败：", e)
+
+        time.sleep(interval)"""
+
+    state = load_state()
+    initialized = bool(state.get("latest_ids"))
+
+    while True:
+        try:
+            latest_topics = get_latest_topics(auth, api_url)
+            current_ids = [topic["id"] for topic in latest_topics]
+
+            print("当前最新两帖：")
+            for topic in latest_topics:
+                print(f"- {topic['title']}")
+
+            if not initialized:
+                state["latest_ids"] = current_ids
+                save_state(state)
+                initialized = True
+                print("初始化完成，当前最新两帖已记录，不触发提醒。")
+            else:
+                old_ids = state.get("latest_ids", [])
+                new_topics = [topic for topic in latest_topics if topic["id"] not in old_ids]
+
+                system_time = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
+
+                if new_topics:
+                    for topic in reversed(new_topics):
+                        print("=" * 60)
+                        print(system_time + "    "+"发现新帖！")
+                        print("标题：", topic["title"])
+                        print("时间：", topic["time"])
+                        print("链接：", topic["link"])
+                        print("=" * 60)
+                        show_notification(topic)
+
+                    state["latest_ids"] = current_ids
+                    save_state(state)
+                else:
+                    print(system_time + "    "+"暂无新帖")
+
         except Exception as e:
             print("检查失败：", e)
 
