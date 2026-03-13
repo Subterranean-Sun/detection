@@ -1,0 +1,10 @@
+{
+  "cc98": {
+    "username": " ",
+    "password": " "
+  },
+  "monitor": {
+    "check_interval": 21,
+    "board_api": "https://api.cc98.org/board/459/topic?from=0&size=20"
+  }
+}
