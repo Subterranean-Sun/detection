@@ -351,6 +351,8 @@ def show_notification(topic: Dict[str, Any]) -> None:
     if matched_keywords:
         play_big_alert_sound()
         show_big_popup(topic, matched_keywords, duration=30000)
+        play_small_alert_sound()
+        show_small_notification(topic)
         print(f"命中关键词：{'、'.join(matched_keywords)} -> 触发特殊弹窗")
     else:
         play_small_alert_sound()
@@ -386,11 +388,11 @@ def main() -> None:
 
     session = build_session(config)
     auth = AuthManager(session, cc98_conf["username"], cc98_conf["password"])
-    sleep_seconds = random.randint(min_interval, max_interval)
+    sleep_seconds = random.uniform(min_interval, max_interval)
     
     print("CC98 板块新帖监控已启动")
     print(f"监控接口：{api_url}")
-    print(f"检查间隔：{sleep_seconds} 秒")
+    print(f"检查间隔：{sleep_seconds:.1f} 秒")
     print(f"特殊关键词：{'、'.join(SPECIAL_KEYWORDS)}")
     """
     state = load_state()
@@ -466,8 +468,8 @@ def main() -> None:
 
         #time.sleep(interval)
         time.sleep(sleep_seconds)
-        sleep_seconds = random.randint(min_interval, max_interval)
-        print(f"检查间隔：{sleep_seconds} 秒")
+        sleep_seconds = random.uniform(min_interval, max_interval)
+        print(f"检查间隔：{sleep_seconds:.1f} 秒")
 
 
 if __name__ == "__main__":
